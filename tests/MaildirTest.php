@@ -56,26 +56,25 @@ class MaildirTest extends TestCase
     $this->assertTrue(is_file(self::DIR."/cur/$n:2,F"));
   }
 
-  function testTrash()
+  function testDelete()
   {
     $d = Maildir::create(self::DIR);
     $n1 = $d->save("abc");
     $n2 = $d->save("xyz");
 
-    $d->fetch($n1);
-    $d->fetch($n2);
 
     $this->assertTrue($d->exists($n1));
     $this->assertTrue($d->exists($n2));
 
-    $d->trash($n1);
-    $this->assertTrue(is_file(self::DIR."/cur/$n1:2,T"));
-    $this->assertTrue(is_file(self::DIR."/cur/$n2:2,"));
-
-    $d->emptyTrash();
+    $d->delete($n1);
     $this->assertFalse($d->exists($n1));
     $this->assertTrue($d->exists($n2));
-    $this->assertFalse(is_file(self::DIR."/cur/$n1:2,T"));
+    $this->assertFalse(is_file(self::DIR."/new/$n1"));
+
+    $d->fetch($n2); // Transfer to 'cur' to test deleting from 'cur'.
+    $d->delete($n2);
+    $this->assertFalse($d->exists($n2));
+    $this->assertFalse(is_file(self::DIR."/cur/$n2:2,"));
   }
 
   public function tearDown()

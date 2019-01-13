@@ -32,14 +32,14 @@ class Maildir
 
   //-----------------------------------
 
-  function isNew($name)
+  function isNew(string $name)
   {
     return is_file("$this->parentDir/new/$name");
   }
 
   //-----------------------------------
 
-  function save($contents)
+  function save(string $contents)
   {
     $name = $this->createName();
     $res = file_put_contents("$this->parentDir/tmp/$name", $contents);
@@ -51,14 +51,14 @@ class Maildir
 
   //-----------------------------------
 
-  function exists($name)
+  function exists(string $name)
   {
     return $this->isNew($name) || ($this->findFilename($name) !== false);
   }
 
   //-----------------------------------
 
-  function fetch($name)
+  function fetch(string $name)
   {
     $this->makeCurrent($name);
 
@@ -68,7 +68,7 @@ class Maildir
     return file_get_contents("$this->parentDir/cur/$filename");
   }
 
-  protected function makeCurrent($name)
+  protected function makeCurrent(string $name)
   {
     if (is_file("$this->parentDir/new/$name"))
       rename("$this->parentDir/new/$name", "$this->parentDir/cur/$name:2,");
@@ -76,23 +76,16 @@ class Maildir
 
   //-----------------------------------
 
-  function trash($name)
+  function delete(string $name)
   {
-    $this->setFlag($name, "T", true);
-  }
-
-  //-----------------------------------
-
-  function emptyTrash()
-  {
-    $files = scandir($this->parentDir."/cur");
-
-    foreach ($files as $file)
+    if (is_file("$this->parentDir/new/$name"))
+      unlink("$this->parentDir/new/$name");
+    else
     {
-      if ($file == "." || $file == "..") continue;
-      $flags = substr($file, strpos($file,":")+3);
-      if (strpos($flags, "T") !== false)
-      unlink("$this->parentDir/cur/$file");
+      $filename = $this->findFilename($name);
+      if ($filename === false)
+        throw new \RuntimeException("Unable to find '$name'.");
+      unlink("$this->parentDir/cur/$filename");
     }
   }
 
@@ -111,7 +104,7 @@ class Maildir
 
   //-----------------------------------
 
-  function getFlags($name)
+  function getFlags(string $name)
   {
     $this->makeCurrent($name);
     $fn = $this->findFilename($name);
@@ -124,7 +117,7 @@ class Maildir
 
   //-----------------------------------
 
-  function hasFlag($name, $flag)
+  function hasFlag(string $name, string $flag)
   {
     $flags = $this->getFlags($name);
     return strpos($flags, $flag) !== false;
@@ -132,7 +125,7 @@ class Maildir
 
   //-----------------------------------
 
-  function clearFlag($name, $flag)
+  function clearFlag(string $name, string $flag)
   {
     $flags = $this->getFlags($name);
     $newFlags = str_replace($flag, "", $flags);
@@ -143,7 +136,7 @@ class Maildir
 
   //-----------------------------------
   
-  function setFlag($name, $flag)
+  function setFlag(string $name, string $flag)
   {
     $flags = $this->getFlags($name);
     if (strpos($flags, $flag) !== false)
@@ -157,7 +150,7 @@ class Maildir
 
   //-----------------------------------
 
-  protected function findFilename($name)
+  protected function findFilename(string $name)
   {
     $handle = opendir($this->parentDir."/cur");
 

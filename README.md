@@ -36,36 +36,44 @@ already exist.
 Save `$contents` into a Maildir file. Returns the name of the file.
 
 `bool isNew(string $name)`
-Returns true if the file for $name has not yet been transferred to 'cur'.
+Returns true if the file for `$name` has not yet been transferred to 'cur'.
 
 `bool exists(string $name)`
-Returns true if the file for $name exists either in cur or new.
+Returns true if the file for `$name` exists either in cur or new.
 
 `string fetch(string $name)`
 Fetches the contents of the file. The file is moved to the 'cur' directory, but  
 the 'S' flag is not set.
 
-`void trash(string $name)`
-Sets a file to be deleted.
+`void delete(string $name)`
+Removes the file for `$name`. Will remove the file from either the 'new' or 'cur'  
+directory
 
-`void emptyTrash()`
-Deletes all files marked with the 'T' flag.
+`bool hasFlag(string $name, string $flag)`
+Returns true if the file has the flag set.
 
-`string getFlags($name)`
-Gets all the flags for a file.
-
-`bool hasFlag($name, $flag)`
-Returns true if the file has teh flag set.
-
-`bool setFlag($name, $flag)`
+`void setFlag(string $name, string $flag)`
 Sets the flag
 
-`bool clearFlag($name, $flag)`
+`void clearFlag(string $name, string $flag)`
 Clears the flag
+
+### How filenames are used in this class
+
+In this class, the name returned by save, and accepted by other functions  
+do not include the flag settings. So while the actual filename on the disk may  
+change as flags are set and cleared, the name used with this class does not.
 
 ## TODO
 
 Create a class for Maildir++.
+
+## Change Log
+
+#### Version 0.2.0
+
+- Added delete function
+- Removed trash and emptyTrash as they, strictly, are not a part of the spec.
 
 ## License
 
