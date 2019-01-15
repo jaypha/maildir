@@ -22,9 +22,31 @@ class Maildir
     return new Maildir($parentDir);
   }
 
+  static function destroy($parentDir)
+  {
+    if (!is_dir($parentDir))
+      throw new \RuntimeException("'$parentDir' is not a directory");
+    if (is_dir("$parentDir/cur"))
+    {
+      array_map("unlink",glob("$parentDir/cur/*"));
+      rmdir("$parentDir/cur");
+    }
+    if (is_dir("$parentDir/new"))
+    {
+      array_map("unlink",glob("$parentDir/new/*"));
+      rmdir("$parentDir/new");
+    }
+    if (is_dir("$parentDir/tmp"))
+    {
+      array_map("unlink",glob("$parentDir/tmp/*"));
+      rmdir("$parentDir/tmp");
+    }
+  }
+
   //-----------------------------------
 
-  private $parentDir;
+  protected $parentDir;
+
   function __construct($parentDir)
   {
     $this->parentDir = $parentDir;
