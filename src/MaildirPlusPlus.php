@@ -9,6 +9,8 @@ class MaildirPlusPlus extends Maildir
 {
   protected $dirs;
 
+  //-------------------------------------------------------
+
   static function create($parentDir)
   {
     if (!is_dir($parentDir))
@@ -25,6 +27,8 @@ class MaildirPlusPlus extends Maildir
     return new MaildirPlusPlus($parentDir);
   }
 
+  //-------------------------------------------------------
+
   static function destroy($parentDir)
   {
     Maildir::destroy($parentDir);
@@ -37,6 +41,8 @@ class MaildirPlusPlus extends Maildir
       }
     }, glob("$parentDir/.*"));
   }
+
+  //-------------------------------------------------------
 
   function __construct($parentDir)
   {
@@ -58,6 +64,8 @@ class MaildirPlusPlus extends Maildir
     }
   }
 
+  //-------------------------------------------------------
+
   function createFolder($folderName, Maildir $parent = null)
   {
     $dirName = $this->getDirNameFromFolder($folderName);
@@ -71,14 +79,17 @@ class MaildirPlusPlus extends Maildir
     return $this->dirs[$dirName];
   }
 
+  //-------------------------------------------------------
+
   function getFolder($folderName)
   {
     $dirName = $this->getDirNameFromFolder($folderName);
     if (array_key_exists($dirName, $this->dirs))
       return $this->dirs[$dirName];
-    else
-      throw new \RuntimeException("Folder '$folderName' doesn't exist");
+    return false;
   }
+
+  //-------------------------------------------------------
 
   function deleteFolder($folderName)
   {
@@ -91,8 +102,25 @@ class MaildirPlusPlus extends Maildir
     }
   }
   
-  function move($fromFolder, $name, $toFolder)
+  //-------------------------------------------------------
+
+  function locate($name)
   {
+    foreach ($this->dirs as $dirName=>$dir)
+      if ($dir->exists($name))
+        return $this->getFolderNameFromDir($dirName);
+    return false;
+  }
+
+  //-------------------------------------------------------
+
+  function move($name, $toFolder, $third = null)
+  {
+    if ($third !== null)
+      throw new \LogicException("Three argument usage is deprecated");
+    $fromFolder = $this->locate($name);
+    if (!$fromFolder)
+      throw new \RuntimeException("File '$name' not found");
     $folder = $this->getFolder($fromFolder);
     $folder->makeCurrent($name);
     $fromDir = $folder->parentDir;
@@ -102,11 +130,17 @@ class MaildirPlusPlus extends Maildir
     rename("$fromDir/cur/$filename", "$toDir/cur/$filename");
   }
 
-  function trash($fromFolder, $name)
+  //-------------------------------------------------------
+
+  function trash($name, $second = null)
   {
-    $this->move($fromFolder, $name, "Trash");
+    if ($second !== null)
+      throw new \LogicException("Two argument usage is deprecated");
+    $this->move($name, "Trash");
     $this->dirs[".Trash"]->setFlag($name, "T");
   }
+
+  //-------------------------------------------------------
 
   function emptyTrash()
   {
@@ -114,6 +148,8 @@ class MaildirPlusPlus extends Maildir
     array_map("unlink",glob("$this->parentDir/.Trash/tmp/*"));
     array_map("unlink",glob("$this->parentDir/.Trash/new/*"));
   }
+
+  //-------------------------------------------------------
 
   protected function getDirNameFromFolder($folderName)
   {

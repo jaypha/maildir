@@ -101,22 +101,27 @@ for each folder as well as the inbox.
 Create a maildir folder for `$foldername`. If `$parent` is provided, it will be used
 as the logical "parent" of the new folder.
 
-`Maildir getFolder($folderName)`
+`mixed getFolder($folderName)`
 
-Get the folder for `$folderName`.
+Get the folder for `$folderName`. Returns a `Maildir` if found, `false` otherwise.
 
 `void deleteFolder($folderName)`
 
 Removes the folder `$folderName`.
 
-`void move($fromFolder, $name, $toFolder)`
+`mixed locate($name)`
 
-Moves a file from `$fromFolder` to `$toFolder`. The file will always be placed
+Retrieves the name of the folder the file is currently lcoated in. Returns `false`
+if file not found.
+
+`void move($name, $toFolder)`
+
+Moves a file to the `$toFolder`. The file will always be placed
 in the cur directory of the destination folder.
 
-`void trash($fromFolder, $name)`
+`void trash($name)`
 
-Moves a file from `$fromFolder` to the Trash folder. Also sets the "T" flag.
+Moves file to the Trash folder. Also sets the "T" flag.
 
 `void emptyTrash()`
 
@@ -124,6 +129,11 @@ Deletes all files in the Trash folder.
 
 
 ## Change Log
+
+#### Version 0.4.0
+
+- Added locate function
+- Move and trash no longer require an origin folder name.
 
 #### Version 0.3.0
 

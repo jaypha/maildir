@@ -112,6 +112,8 @@ class MaildirPlusPlusTest extends TestCase
 
     $dir = new MaildirExp($this->maildirpp->getFolder("Trash"));
     $this->assertTrue($dir->parentDir == self::DIR."/.Trash");
+
+    $this->assertFalse($this->maildirpp->getFolder("Null"));
     
   }
 
@@ -140,16 +142,25 @@ class MaildirPlusPlusTest extends TestCase
     $this->assertFalse(is_dir(self::DIR."/.first.second"));
   }
 
+  function testLocate()
+  {
+    $name1 = $this->maildirpp->save("abc");
+    $name2 = $this->maildirpp->getFolder("Drafts")->save("xyz");
+    $this->assertEquals($this->maildirpp->locate($name1), "Inbox");
+    $this->assertEquals($this->maildirpp->locate($name2), "Drafts");
+    $this->assertFalse($this->maildirpp->locate("nobody"));
+  }
+
   function testMove()
   {
     $name = $this->maildirpp->save("xyz");
     $inbox = $this->maildirpp->getFolder("Inbox");
     $drafts = $this->maildirpp->getFolder("Drafts");
     $this->assertTrue($inbox->exists($name));
-    $this->maildirpp->move("Inbox",$name, "Drafts");
+    $this->maildirpp->move($name, "Drafts");
     $this->assertTrue($drafts->exists($name));
-
     $this->assertFalse($inbox->exists($name));
+    $this->assertEquals($this->maildirpp->locate($name), "Drafts");
   }
 
   function testTrash()
@@ -158,10 +169,11 @@ class MaildirPlusPlusTest extends TestCase
     $inbox = $this->maildirpp->getFolder("Inbox");
     $trash = $this->maildirpp->getFolder("Trash");
     $this->assertTrue($inbox->exists($name));
-    $this->maildirpp->trash("Inbox",$name);
+    $this->maildirpp->trash($name);
     $this->assertTrue($trash->exists($name));
     $this->assertTrue($trash->hasFlag($name,"T"));
     $this->assertFalse($inbox->exists($name));
+    $this->assertEquals($this->maildirpp->locate($name), "Trash");
   }
 
   function testEmptyTrash()
@@ -169,14 +181,16 @@ class MaildirPlusPlusTest extends TestCase
     $trash = $this->maildirpp->getFolder("Trash");
     $name1 = $this->maildirpp->save("xyz");
     $name2 = $this->maildirpp->save("abc");
-    $this->maildirpp->trash("Inbox",$name1);
-    $this->maildirpp->trash("Inbox",$name2);
+    $this->maildirpp->trash($name1);
+    $this->maildirpp->trash($name2);
     $this->assertTrue($trash->exists($name1));
     $this->assertTrue($trash->exists($name2));
 
     $this->maildirpp->emptyTrash();
     $this->assertFalse($trash->exists($name1));
     $this->assertFalse($trash->exists($name2));
+    $this->assertFalse($this->maildirpp->locate($name1));
+    $this->assertFalse($this->maildirpp->locate($name2));
   }
 
   public function tearDown()
