@@ -37,7 +37,15 @@ class MaildirTest extends TestCase
 
   function testSave()
   {
+    // Test string
     $n = $this->maildir->save("xyz");
+    $this->assertTrue($this->maildir->exists($n));
+    $this->assertTrue($this->maildir->isNew($n));
+    $this->assertTrue(is_file(self::DIR."/new/$n"));
+
+    // Test stream
+    $stream = fopen("data://text/plain;base64,".base64_encode("abc"), "r");
+    $n = $this->maildir->save($stream);
     $this->assertTrue($this->maildir->exists($n));
     $this->assertTrue($this->maildir->isNew($n));
     $this->assertTrue(is_file(self::DIR."/new/$n"));

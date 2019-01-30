@@ -61,13 +61,15 @@ class Maildir
 
   //-----------------------------------
 
-  function save(string $contents)
+  function save($contents)
   {
     $name = $this->createName();
     $res = file_put_contents("$this->parentDir/tmp/$name", $contents);
     if ($res === false)
       throw new \RuntimeException("Failed to write data to '$parentDir' Maildir.");
     $res = rename("$this->parentDir/tmp/$name", "$this->parentDir/new/$name");
+    if ($res === false)
+      throw new \RuntimeException("Failed to move file '$name' to 'new' in '$parentDir' Maildir.");
     return $name;
   }
 
