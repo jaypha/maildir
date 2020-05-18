@@ -96,6 +96,26 @@ class MaildirTest extends TestCase
     $this->assertFalse(is_file(self::DIR."/cur/$n2:2,"));
   }
 
+  function testListNames()
+  {
+    $n = [
+      $this->maildir->save("abc") => "abc",
+      $this->maildir->save("xyz") => "xyz"
+    ];
+
+    foreach (array_keys($n) as $name)
+      $this->assertTrue($this->maildir->exists($name));
+
+    foreach ($this->maildir->getNames() as $name)
+      $this->assertArrayHasKey($name, $n);
+
+    foreach ($this->maildir->getFiles() as $name => $f)
+    {
+      $this->assertArrayHasKey($name, $n);
+      $this->assertContains($f, $n);
+    }
+  }
+
   public function tearDown()
   {
     Maildir::destroy(self::DIR);

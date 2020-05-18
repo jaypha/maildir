@@ -2,7 +2,7 @@
 
 Written by Jason den Dulk
 
-Class to read and write files using the maildir and maildir++ formats.
+Classes to read and write files using the maildir and maildir++ formats.
 
 Maildir is a common format used to store emails on a computer. Maildir++ is an
 extension to Maildir to support multiple folders and quotas.
@@ -80,6 +80,14 @@ Sets the flag
 
 Clears the flag
 
+`generator getNames()`
+
+Returns the list of names stored in the maildir.
+
+`generator getFiles()`
+
+Returns the list of files stored in the maildir, indexed by name
+
 ### class MaildirPlusPlus
 
 #### How folder names are used in this class.
@@ -137,6 +145,10 @@ Deletes all files in the Trash folder.
 Quotas support
 
 ## Change Log
+
+####
+
+- Added getNames and getFiles to allow iteration over the maildir contents.
 
 #### Version 0.4.1
 

@@ -174,6 +174,31 @@ class Maildir
 
   //-----------------------------------
 
+  function getNames()
+  {
+    $files = scandir($this->parentDir."/new");
+
+    foreach ($files as $file)
+      $this->makeCurrent($file);
+
+    $handle = opendir($this->parentDir."/cur");
+    while (false !== ($entry = readdir($handle))) {
+      if ($entry == "." || $entry == "..") continue;
+      $name = $this->extractName($entry);
+      yield $name;
+    }
+  }
+
+  //-----------------------------------
+
+  function getFiles()
+  {
+    foreach ($this->getNames() as $name)
+      yield $name => $this->fetch($name);
+  }
+
+  //-----------------------------------
+
   protected function findFilename(string $name)
   {
     $handle = opendir($this->parentDir."/cur");
@@ -189,6 +214,13 @@ class Maildir
 
     closedir($handle);
     return $ret;    
+  }
+
+  //-----------------------------------
+
+  protected function extractName(string $filename)
+  {
+    return substr($filename, 0, strpos($filename,":"));
   }
 
   //-----------------------------------
