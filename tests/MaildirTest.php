@@ -7,23 +7,6 @@ namespace Jaypha\Maildir;
 
 use PHPUnit\Framework\TestCase;
 
-class MaildirCreateTest extends TestCase
-{
-  const DIR = __DIR__."/maildir";
-
-  function testCreate()
-  {
-    $d = Maildir::create(self::DIR);
-    $this->assertTrue(is_dir(self::DIR."/cur"));
-    $this->assertTrue(is_dir(self::DIR."/tmp"));
-    $this->assertTrue(is_dir(self::DIR."/new"));
-    Maildir::destroy(self::DIR);
-    $this->assertFalse(is_dir(self::DIR."/cur"));
-    $this->assertFalse(is_dir(self::DIR."/tmp"));
-    $this->assertFalse(is_dir(self::DIR."/new"));
-  }
-}
-
 class MaildirTest extends TestCase
 {
   const DIR = __DIR__."/maildir";
@@ -32,88 +15,123 @@ class MaildirTest extends TestCase
 
   function setup()
   {
+    if (!file_exists(self::DIR))
+      mkdir(self::DIR);
     $this->maildir = Maildir::create(self::DIR);
   }
 
   function testSave()
   {
     // Test string
-    $n = $this->maildir->save("xyz");
-    $this->assertTrue($this->maildir->exists($n));
-    $this->assertTrue($this->maildir->isNew($n));
-    $this->assertTrue(is_file(self::DIR."/new/$n"));
+    $name = $this->maildir->save("xyz");
+    $this->assertTrue($this->maildir->exists($name));
+    $this->assertTrue($this->maildir->isNew($name));
+    $this->assertTrue(is_file(self::DIR."/new/$name"));
+    $this->assertEquals(self::DIR."/new/$name", $this->maildir->getPath($name));
 
     // Test stream
     $stream = fopen("data://text/plain;base64,".base64_encode("abc"), "r");
-    $n = $this->maildir->save($stream);
-    $this->assertTrue($this->maildir->exists($n));
-    $this->assertTrue($this->maildir->isNew($n));
-    $this->assertTrue(is_file(self::DIR."/new/$n"));
+    $name = $this->maildir->save($stream);
+    $this->assertTrue($this->maildir->exists($name));
+    $this->assertTrue($this->maildir->isNew($name));
+    $this->assertTrue(is_file(self::DIR."/new/$name"));
+    $this->assertEquals(self::DIR."/new/$name", $this->maildir->getPath($name));
   }
 
   function testRead()
   {
-    $n = $this->maildir->save("xyz");
-    $f = $this->maildir->fetch($n);
-    $this->assertEquals($f, "xyz");
-    $this->assertTrue(is_file(self::DIR."/cur/$n:2,"));
+    $contents = "xyz";
+    $name = $this->maildir->save("xyz");
+    $savedContents = $this->maildir->fetch($name);
+    $this->assertEquals($contents, $savedContents);
+    $this->assertTrue(is_file(self::DIR."/cur/$name:2,"));
+    $this->assertEquals(self::DIR."/cur/$name:2,", $this->maildir->getPath($name));
+
+    $stream = $this->maildir->fetchAsStream($name);
+    $this->assertTrue(is_resource($stream));
+    $this->assertEquals($contents, stream_get_contents($stream));
+    fclose($stream);
+    
+    
   }
 
   function testFlag()
   {
-    $n = $this->maildir->save("xyz");
-    $this->maildir->setFlag($n, "F");
-    $this->assertTrue($this->maildir->hasFlag($n,"F"));
-    $this->assertFalse($this->maildir->hasFlag($n,"T"));
-    $this->assertTrue(is_file(self::DIR."/cur/$n:2,F"));
-    $this->maildir->setFlag($n, "D");
-    $this->assertTrue($this->maildir->hasFlag($n,"D"));
-    $this->assertTrue($this->maildir->hasFlag($n,"F"));
-    $this->assertEquals($this->maildir->getFlags($n), "DF");
-    $this->assertTrue(is_file(self::DIR."/cur/$n:2,DF"));
-    $this->maildir->clearFlag($n, "D");
-    $this->assertFalse($this->maildir->hasFlag($n,"D"));
-    $this->assertTrue($this->maildir->hasFlag($n,"F"));
-    $this->assertTrue(is_file(self::DIR."/cur/$n:2,F"));
+    $name = $this->maildir->save("xyz");
+    $this->maildir->setFlag($name, "F");
+    $this->assertTrue($this->maildir->hasFlag($name,"F"));
+    $this->assertFalse($this->maildir->hasFlag($name,"T"));
+    $this->assertTrue(is_file(self::DIR."/cur/$name:2,F"));
+    $this->assertEquals(self::DIR."/cur/$name:2,F", $this->maildir->getPath($name));
+    $this->maildir->setFlag($name, "D");
+    $this->assertTrue($this->maildir->hasFlag($name,"D"));
+    $this->assertTrue($this->maildir->hasFlag($name,"F"));
+    $this->assertEquals($this->maildir->getFlags($name), "DF");
+    $this->assertTrue(is_file(self::DIR."/cur/$name:2,DF"));
+    $this->assertEquals(self::DIR."/cur/$name:2,DF", $this->maildir->getPath($name));
+    $this->maildir->clearFlag($name, "D");
+    $this->assertFalse($this->maildir->hasFlag($name,"D"));
+    $this->assertTrue($this->maildir->hasFlag($name,"F"));
+    $this->assertTrue(is_file(self::DIR."/cur/$name:2,F"));
+    $this->assertEquals(self::DIR."/cur/$name:2,F", $this->maildir->getPath($name));
   }
 
   function testDelete()
   {
-    $n1 = $this->maildir->save("abc");
-    $n2 = $this->maildir->save("xyz");
+    $name1 = $this->maildir->save("abc");
+    $name2 = $this->maildir->save("xyz");
 
-    $this->assertTrue($this->maildir->exists($n1));
-    $this->assertTrue($this->maildir->exists($n2));
+    $this->assertTrue($this->maildir->exists($name1));
+    $this->assertTrue($this->maildir->exists($name2));
 
-    $this->maildir->delete($n1);
-    $this->assertFalse($this->maildir->exists($n1));
-    $this->assertTrue($this->maildir->exists($n2));
-    $this->assertFalse(is_file(self::DIR."/new/$n1"));
+    $this->maildir->delete($name1);
+    $this->assertFalse($this->maildir->exists($name1));
+    $this->assertTrue($this->maildir->exists($name2));
+    $this->assertFalse(is_file(self::DIR."/new/$name1"));
 
-    $this->maildir->fetch($n2); // Transfer to 'cur' to test deleting from 'cur'.
-    $this->maildir->delete($n2);
-    $this->assertFalse($this->maildir->exists($n2));
-    $this->assertFalse(is_file(self::DIR."/cur/$n2:2,"));
+    $this->maildir->fetch($name2); // Transfer to 'cur' to test deleting from 'cur'.
+    $this->maildir->delete($name2);
+    $this->assertFalse($this->maildir->exists($name2));
+    $this->assertFalse(is_file(self::DIR."/cur/$name2:2,"));
+    $this->assertFalse($this->maildir->getPath($name2));
   }
 
   function testListNames()
   {
-    $n = [
+    $names = [
       $this->maildir->save("abc") => "abc",
       $this->maildir->save("xyz") => "xyz"
     ];
 
-    foreach (array_keys($n) as $name)
+    foreach (array_keys($names) as $name)
       $this->assertTrue($this->maildir->exists($name));
 
+    $count = 0;
     foreach ($this->maildir->getNames() as $name)
-      $this->assertArrayHasKey($name, $n);
-
-    foreach ($this->maildir->getFiles() as $name => $f)
     {
-      $this->assertArrayHasKey($name, $n);
-      $this->assertContains($f, $n);
+      ++$count;
+      $this->assertArrayHasKey($name, $names);
     }
+    $this->assertEquals(2, $count);
+
+    $count = 0;
+    foreach ($this->maildir->getFiles() as $name => $contents)
+    {
+      ++$count;
+      $this->assertArrayHasKey($name, $names);
+      $this->assertEquals($names[$name], $contents);
+    }
+    $this->assertEquals(2, $count);
+
+    $count = 0;
+    foreach ($this->maildir->getStreams() as $name => $stream)
+    {
+      ++$count;
+      $this->assertArrayHasKey($name, $names);
+      $this->assertEquals($names[$name], stream_get_contents($stream));
+      fclose($stream);
+    }
+    $this->assertEquals(2, $count);
   }
 
   public function tearDown()

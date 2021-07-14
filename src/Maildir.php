@@ -5,111 +5,182 @@
 // Read and write files in Maildir format.
 // See https://cr.yp.to/proto/maildir.html
 //----------------------------------------------------------------------------
+//
+// How filenames are used in this class
+//
+// In this class, the name returned by save, and accepted by other functions
+// do not include the flag settings. So while the actual filename on the disk may
+// change as flags are set and cleared, the name used with this class does not.
+//
+//----------------------------------------------------------------------------
 
 namespace Jaypha\Maildir;
 
 class Maildir
 {
-  static $qVal = 0;
+  protected static $qVal = 0;
 
-  static function create($parentDir)
+  //-----------------------------------
+
+  // Create a maildir structure
+  static function create($rootDir) : Maildir
   {
-    if (!is_dir($parentDir))
-      throw new \RuntimeException("'$parentDir' is not a directory");
-    mkdir("$parentDir/cur");
-    mkdir("$parentDir/tmp");
-    mkdir("$parentDir/new");
-    return new Maildir($parentDir);
+    if (!is_dir($rootDir))
+      throw new \RuntimeException("'$rootDir' is not a directory");
+    mkdir("$rootDir/cur");
+    mkdir("$rootDir/tmp");
+    mkdir("$rootDir/new");
+    return new Maildir($rootDir);
   }
 
-  static function destroy($parentDir)
+  //-----------------------------------
+
+  // Destroys the maildir structure.
+  static function destroy($rootDir)
   {
-    if (!is_dir($parentDir))
-      throw new \RuntimeException("'$parentDir' is not a directory");
-    if (is_dir("$parentDir/cur"))
+    if (!is_dir($rootDir))
+      throw new \RuntimeException("'$rootDir' is not a directory");
+    if (is_dir("$rootDir/cur"))
     {
-      array_map("unlink",glob("$parentDir/cur/*"));
-      rmdir("$parentDir/cur");
+      array_map("unlink",glob("$rootDir/cur/*"));
+      rmdir("$rootDir/cur");
     }
-    if (is_dir("$parentDir/new"))
+    if (is_dir("$rootDir/new"))
     {
-      array_map("unlink",glob("$parentDir/new/*"));
-      rmdir("$parentDir/new");
+      array_map("unlink",glob("$rootDir/new/*"));
+      rmdir("$rootDir/new");
     }
-    if (is_dir("$parentDir/tmp"))
+    if (is_dir("$rootDir/tmp"))
     {
-      array_map("unlink",glob("$parentDir/tmp/*"));
-      rmdir("$parentDir/tmp");
+      array_map("unlink",glob("$rootDir/tmp/*"));
+      rmdir("$rootDir/tmp");
     }
   }
 
   //-----------------------------------
 
-  protected $parentDir;
-
-  function __construct($parentDir)
+  // Creates a name to store a file under.
+  static function createName() : string
   {
-    $this->parentDir = $parentDir;
+    $tod = gettimeofday();
+    $left = $tod["sec"];
+    $m = "M".$tod["usec"];
+    $p = "P".getmypid();
+    $q = "Q".(++self::$qVal);
+    $right = gethostname();
+    return "$left.$m$p$q.$right";
   }
 
   //-----------------------------------
 
-  function isNew(string $name)
+  // Tests whether the directory has a maildir structure
+  static function isMaildir($dir) : bool
   {
-    return is_file("$this->parentDir/new/$name");
+    return (
+      is_dir("$dir/cur") &&
+      is_dir("$dir/new") &&
+      is_dir("$dir/tmp")
+    );
   }
 
   //-----------------------------------
 
-  function save($contents)
+  protected $rootDir;
+
+  function __construct($rootDir)
+  {
+    if (!self::isMaildir($rootDir))
+      throw new \LogicException("Maildir: directory structure not found. Perhaps use Maildir::create()");
+    $this->rootDir = $rootDir;
+  }
+
+  //-----------------------------------
+
+  function __get($p)
+  {
+    switch ($p)
+    {
+      case "rootDir":
+        return $this->rootDir;
+      default:
+        throw new \LogicException("Maildir: Property '$p' not supported");
+    }
+  }
+
+  //-----------------------------------
+
+  function isNew(string $name) : bool
+  {
+    return is_file("$this->rootDir/new/$name");
+  }
+
+  //-----------------------------------
+
+  function save($contents) : string
   {
     $name = $this->createName();
-    $res = file_put_contents("$this->parentDir/tmp/$name", $contents);
+    $res = file_put_contents("$this->rootDir/tmp/$name", $contents);
     if ($res === false)
-      throw new \RuntimeException("Failed to write data to '$parentDir' Maildir.");
-    $res = rename("$this->parentDir/tmp/$name", "$this->parentDir/new/$name");
+      throw new \RuntimeException("Failed to write data to '$rootDir' Maildir.");
+    $res = rename("$this->rootDir/tmp/$name", "$this->rootDir/new/$name");
     if ($res === false)
-      throw new \RuntimeException("Failed to move file '$name' to 'new' in '$parentDir' Maildir.");
+      throw new \RuntimeException("Failed to move file '$name' to 'new' in '$rootDir' Maildir.");
     return $name;
   }
 
   //-----------------------------------
 
-  function exists(string $name)
+  // Forces the file to the 'cur' directory
+  function touch(string $name)
+  {
+    if (is_file("$this->rootDir/new/$name"))
+      rename("$this->rootDir/new/$name", "$this->rootDir/cur/$name:2,");
+  }
+
+  //-----------------------------------
+
+  function exists(string $name) : bool
   {
     return $this->isNew($name) || ($this->findFilename($name) !== false);
   }
 
   //-----------------------------------
 
+  // Returns the contents of the file as a stream
   function fetch(string $name)
   {
-    $this->makeCurrent($name);
+    $this->touch($name);
 
     $filename = $this->findFilename($name);
     if ($filename === false)
       throw new \RuntimeException("Unable to find '$name'.");
-    return file_get_contents("$this->parentDir/cur/$filename");
+    return file_get_contents("$this->rootDir/cur/$filename");
   }
 
-  protected function makeCurrent(string $name)
+  //-----------------------------------
+
+  function fetchAsStream(string $name)
   {
-    if (is_file("$this->parentDir/new/$name"))
-      rename("$this->parentDir/new/$name", "$this->parentDir/cur/$name:2,");
+    $this->touch($name);
+
+    $filename = $this->findFilename($name);
+    if ($filename === false)
+      throw new \RuntimeException("Unable to find '$name'.");
+    return fopen("$this->rootDir/cur/$filename", "r");
   }
 
   //-----------------------------------
 
   function delete(string $name)
   {
-    if (is_file("$this->parentDir/new/$name"))
-      unlink("$this->parentDir/new/$name");
+    if (is_file("$this->rootDir/new/$name"))
+      unlink("$this->rootDir/new/$name");
     else
     {
       $filename = $this->findFilename($name);
       if ($filename === false)
         throw new \RuntimeException("Unable to find '$name'.");
-      unlink("$this->parentDir/cur/$filename");
+      unlink("$this->rootDir/cur/$filename");
     }
   }
 
@@ -117,20 +188,14 @@ class Maildir
 
   protected function clearTmp()
   {
-    $files = scandir($this->parentDir."/tmp");
-
-    foreach ($files as $file)
-    {
-      if ($file == "." || $file == "..") continue;
-      unlink("$this->parentDir/tmp/$file");
-    }
+    array_map("unlink",glob("$this->rootDir/tmp/*"));
   }
 
   //-----------------------------------
 
   function getFlags(string $name)
   {
-    $this->makeCurrent($name);
+    $this->touch($name);
     $fn = $this->findFilename($name);
     if ($fn === false)
       return false;
@@ -141,7 +206,7 @@ class Maildir
 
   //-----------------------------------
 
-  function hasFlag(string $name, string $flag)
+  function hasFlag(string $name, string $flag) : bool
   {
     $flags = $this->getFlags($name);
     return strpos($flags, $flag) !== false;
@@ -155,7 +220,7 @@ class Maildir
     $newFlags = str_replace($flag, "", $flags);
     if ($newFlags == $flags)
       return;
-    rename("$this->parentDir/cur/$name:2,$flags", "$this->parentDir/cur/$name:2,$newFlags");
+    rename("$this->rootDir/cur/$name:2,$flags", "$this->rootDir/cur/$name:2,$newFlags");
   }
 
   //-----------------------------------
@@ -169,23 +234,18 @@ class Maildir
     $f[] = $flag;
     sort($f);
     $newFlags = implode("", $f);
-    rename("$this->parentDir/cur/$name:2,$flags", "$this->parentDir/cur/$name:2,$newFlags");
+    rename("$this->rootDir/cur/$name:2,$flags", "$this->rootDir/cur/$name:2,$newFlags");
   }
 
   //-----------------------------------
 
   function getNames()
   {
-    $files = scandir($this->parentDir."/new");
+    array_map([$this,"touch"], array_map("basename",glob($this->rootDir."/new/*")));
 
-    foreach ($files as $file)
-      $this->makeCurrent($file);
-
-    $handle = opendir($this->parentDir."/cur");
-    while (false !== ($entry = readdir($handle))) {
-      if ($entry == "." || $entry == "..") continue;
-      $name = $this->extractName($entry);
-      yield $name;
+    foreach (array_map("basename",glob($this->rootDir."/cur/*")) as $filename)
+    {
+      yield $this->extractName($filename);
     }
   }
 
@@ -199,9 +259,31 @@ class Maildir
 
   //-----------------------------------
 
+  function getStreams()
+  {
+    foreach ($this->getNames() as $name)
+      yield $name => $this->fetchAsStream($name);
+  }
+
+  //-----------------------------------
+
+  // Gets the full path (including directory and flags) for $name
+  function getPath(string $name)
+  {
+    $filename = $this->findFilename($name);
+    if ($filename)
+      return "$this->rootDir/cur/$filename";
+    if ($this->isNew($name))
+      return "$this->rootDir/new/$name";
+    return false;
+  }
+
+  //-----------------------------------
+
+  // Gets the filename (including flags) for $name.
   protected function findFilename(string $name)
   {
-    $handle = opendir($this->parentDir."/cur");
+    $handle = opendir("$this->rootDir/cur");
 
     $ret = false;
     while (false !== ($entry = readdir($handle))) {
@@ -218,23 +300,12 @@ class Maildir
 
   //-----------------------------------
 
-  protected function extractName(string $filename)
+  // Extracts the name part from a filename (the reverse of findFilename)
+  protected function extractName(string $filename) : string
   {
     return substr($filename, 0, strpos($filename,":"));
   }
 
-  //-----------------------------------
-
-  protected function createName()
-  {
-    $tod = gettimeofday();
-    $left = $tod["sec"];
-    $m = "M".$tod["usec"];
-    $p = "P".getmypid();
-    $q = "Q".(++self::$qVal);
-    $right = gethostname();
-    return "$left.$m$p$q.$right";
-  }
 }
 
 //----------------------------------------------------------------------------
